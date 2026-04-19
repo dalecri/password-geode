@@ -719,10 +719,13 @@ function bindTweakGroup(groupId, key){
       state[key] = val;
       const edits = {}; edits[key] = val;
       persistEdits(edits);
+      
       if (key === 'rock' || key === 'resolution'){
         rebuildRock();
+        updateSpecimen(current, fractureTarget); // Forces Specimen UI text to update
       } else if (key === 'palette'){
         rebuildGeode();
+        updateSpecimen(current, fractureTarget); // Forces Specimen UI text to update
       }
     });
   });
