@@ -720,12 +720,12 @@ function bindTweakGroup(groupId, key){
       const edits = {}; edits[key] = val;
       persistEdits(edits);
       
-      if (key === 'rock' || key === 'resolution'){
+      if (key === 'resolution'){
         rebuildRock();
-        updateSpecimen(current, fractureTarget); // Forces Specimen UI text to update
+        updateSpecimen(current, fractureTarget); 
       } else if (key === 'palette'){
         rebuildGeode();
-        updateSpecimen(current, fractureTarget); // Forces Specimen UI text to update
+        updateSpecimen(current, fractureTarget); 
       }
     });
   });
@@ -733,10 +733,6 @@ function bindTweakGroup(groupId, key){
   group.querySelectorAll('.seg-btn').forEach(b=>{
     b.classList.toggle('on', b.dataset.val === val);
   });
-}
-
-function rebuildRock(){
-  buildRock();
 }
 
 bindTweakGroup('#tw-palette', 'palette');
