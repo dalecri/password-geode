@@ -739,7 +739,6 @@ function rebuildRock(){
   buildRock();
 }
 
-bindTweakGroup('#tw-rock', 'rock');
 bindTweakGroup('#tw-palette', 'palette');
 bindTweakGroup('#tw-res', 'resolution');
 bindTweakGroup('#tw-spin', 'spin');
