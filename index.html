@@ -57,7 +57,12 @@
   .brand .wordmark{ display:flex; flex-direction:column; line-height:1; }
   .brand .wordmark .t1{ font-size:18px; letter-spacing:0.02em; }
   .brand .wordmark .t2{ font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:var(--ink-dim); margin-top:4px; }
-  .crumbs{ display:flex; gap:18px; pointer-events:auto; }
+.crumbs { 
+  display: flex; 
+  gap: 18px; 
+  pointer-events: auto; 
+  margin-right: 90px; /* Adds space for the Forge button */
+}
   .crumb{ font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--ink-mute); }
   .crumb.active{ color:var(--ink); }
 
