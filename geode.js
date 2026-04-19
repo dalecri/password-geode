@@ -718,10 +718,13 @@ function bindTweakGroup(groupId, key){
       state[key] = val;
       const edits = {}; edits[key] = val;
       persistEdits(edits);
-      if (key === 'rock' || key === 'resolution'){
+      
+      if (key === 'resolution'){
         rebuildRock();
+        updateSpecimen(current, fractureTarget); 
       } else if (key === 'palette'){
         rebuildGeode();
+        updateSpecimen(current, fractureTarget); 
       }
     });
   });
@@ -729,10 +732,6 @@ function bindTweakGroup(groupId, key){
   group.querySelectorAll('.seg-btn').forEach(b=>{
     b.classList.toggle('on', b.dataset.val === val);
   });
-}
-
-function rebuildRock(){
-  buildRock();
 }
 
 bindTweakGroup('#tw-palette', 'palette');
