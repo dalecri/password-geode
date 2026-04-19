@@ -163,11 +163,6 @@ scene.add(geodeGroup);
 
 const RES_MAP = { low:10, med:14, high:18 };
 
-// A voxel cluster: cubes packed inside a slightly-irregular sphere.
-// Each voxel gets a color jittered from the rock palette, and
-// a "crack threshold" (0..1). When fracture > threshold, the voxel
-// flies outward and fades.
-
 let voxels = []; // { mesh, home, dir, threshold, baseColor }
 let voxelGeo = null;
 
@@ -181,13 +176,10 @@ function buildRock(){
   const spec = ROCKS[state.rock];
   const rand = rng(12345);
 
-  // voxel size — world scale rock ~2.4 units radius
   const worldR = 2.4;
   const vs = (worldR*2) / N; // voxel side
   voxelGeo = new THREE.BoxGeometry(vs*0.98, vs*0.98, vs*0.98);
 
-  // Pre-make material per face color to avoid making N³ materials.
-  // We'll use MeshStandardMaterial with vertexColors via InstancedMesh.
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.92,
@@ -195,20 +187,17 @@ function buildRock(){
     flatShading: true,
   });
 
-  // Count voxels first
   const positions = [];
   for (let x=0;x<N;x++){
     for (let y=0;y<N;y++){
       for (let z=0;z<N;z++){
         const cx = x - (N-1)/2, cy = y - (N-1)/2, cz = z - (N-1)/2;
         const rad = Math.sqrt(cx*cx+cy*cy+cz*cz);
-        // irregular sphere
         const theta = Math.atan2(cz, cx);
         const phi = Math.atan2(cy, Math.sqrt(cx*cx+cz*cz));
         const wobble = 0.35 * (Math.sin(theta*3 + 0.7)*Math.cos(phi*2 - 0.3))
                      + 0.2 * Math.sin(theta*5 + phi*4 + 1.3);
         if (rad < r + wobble){
-          // carve interior hollow (we'll reveal it later)
           const innerR = r*0.55 + 0.3 * Math.sin(theta*2)*Math.cos(phi*3);
           if (rad < innerR) continue;
           positions.push([cx,cy,cz]);
@@ -217,7 +206,6 @@ function buildRock(){
     }
   }
 
-  // Build one InstancedMesh
   const mesh = new THREE.InstancedMesh(voxelGeo, mat, positions.length);
   mesh.frustumCulled = false;
   rockGroup.add(mesh);
@@ -238,7 +226,6 @@ function buildRock(){
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
 
-    // color — mostly base, sometimes grain
     let col;
     const pick = rand();
     if (pick < 0.15) col = grainCols[0];
@@ -246,20 +233,16 @@ function buildRock(){
     else if (pick < 0.35) col = grainCols[2];
     else col = baseCol;
     color.copy(col);
-    // jitter
     const jitter = (rand()-0.5) * spec.noise;
     color.r = clamp(color.r + jitter*0.2, 0, 1);
     color.g = clamp(color.g + jitter*0.2, 0, 1);
     color.b = clamp(color.b + jitter*0.2, 0, 1);
     mesh.setColorAt(i, color);
 
-    // Outer layer voxels get lower threshold (chip first)
     const radial = Math.sqrt(cx*cx+cy*cy+cz*cz);
-    const layer = radial / r;                 // 0 = center, 1 = outer
-    // outer voxels threshold low, inner high
+    const layer = radial / r;                 
     const threshold = 0.15 + (1 - layer) * 0.85 + (rand()-0.5)*0.1;
 
-    // explosion direction
     const len = Math.sqrt(wx*wx+wy*wy+wz*wz) + 1e-3;
     const dir = new THREE.Vector3(wx/len + (rand()-0.5)*0.4, wy/len + (rand()-0.5)*0.4 + 0.2, wz/len + (rand()-0.5)*0.4);
     dir.normalize();
@@ -292,7 +275,6 @@ function buildGeode(seed, palette, complexity){
   const rand = rng(seed);
   const pal = PALETTES[palette];
 
-  // Core glowing sphere
   {
     const core = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.35, 1),
@@ -308,7 +290,6 @@ function buildGeode(seed, palette, complexity){
     geodeCrystals.push({ mesh: halo, kind:'halo' });
   }
 
-  // Crystal shards — cones growing from center outward
   const count = Math.floor(lerp(18, 140, complexity));
   const shardMat = new THREE.MeshStandardMaterial({
     color: pal.base,
@@ -327,9 +308,8 @@ function buildGeode(seed, palette, complexity){
     flatShading: true,
   });
 
-  const maxR = 2.0; // stay inside the hollow
+  const maxR = 2.0; 
   for (let i=0;i<count;i++){
-    // point on sphere surface — then push inward a bit
     const u = rand(), v = rand();
     const theta = 2*Math.PI*u;
     const phi = Math.acos(2*v - 1);
@@ -344,14 +324,12 @@ function buildGeode(seed, palette, complexity){
     const geo = new THREE.ConeGeometry(rad, height, sides, 1, false);
     const mesh = new THREE.Mesh(geo, rand() < 0.22 ? accentMat : shardMat);
 
-    // orient: cone's +Y should point along (x,y,z) outward
     const dir = new THREE.Vector3(x,y,z);
-    const base = dir.clone().multiplyScalar(maxR * 0.3); // base near center-ish
+    const base = dir.clone().multiplyScalar(maxR * 0.3); 
     mesh.position.copy(base.clone().add(dir.clone().multiplyScalar(height*0.5)));
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
-    // slight random roll
     mesh.rotateY(rand()*Math.PI*2);
-    mesh.scale.set(0.001, 0.001, 0.001); // grow in
+    mesh.scale.set(0.001, 0.001, 0.001); 
     geodeGroup.add(mesh);
     geodeCrystals.push({
       mesh,
@@ -361,7 +339,6 @@ function buildGeode(seed, palette, complexity){
     });
   }
 
-  // Random floating accent cubes inside
   const sparkleCount = Math.floor(lerp(4, 22, complexity));
   for (let i=0;i<sparkleCount;i++){
     const sz = lerp(0.04, 0.1, rand());
@@ -377,13 +354,11 @@ function buildGeode(seed, palette, complexity){
     geodeCrystals.push({ mesh:m, kind:'spark' });
   }
 
-  // hidden initially
   geodeGroup.visible = false;
   geodeGroup.scale.setScalar(0.0001);
 }
 
 // ---------- Crack progress ----------
-// fracture 0..1 — threshold below which voxels "fly away"
 let fracture = 0;
 let fractureTarget = 0;
 
@@ -417,26 +392,20 @@ function tick(now){
   lastT = now;
   elapsed += dt;
 
-  // ease fracture
   fracture = lerp(fracture, fractureTarget, 1 - Math.pow(0.001, dt));
 
-  // rotate scene
   const spinRate = state.spin === 'off' ? 0 : state.spin === 'fast' ? 0.35 : 0.12;
   rockGroup.rotation.y += dt * spinRate;
   rockGroup.rotation.x = Math.sin(elapsed*0.2) * 0.08;
   geodeGroup.rotation.y -= dt * spinRate * 1.3;
   geodeGroup.rotation.x = Math.sin(elapsed*0.25) * 0.1;
 
-  // Update voxel instance matrices based on fracture
   if (voxels.length){
     const mesh = voxels[0].mesh;
     for (let i=0;i<voxels.length;i++){
       const v = voxels[i];
-      // how broken is this voxel?
-      // if fracture > threshold, it's past its breaking point
       const over = fracture - v.threshold;
       const broken = over > 0;
-      // also small "stress wiggle" just before breaking
       const stress = smoothstep(v.threshold - 0.1, v.threshold, fracture);
 
       let px = v.home.x, py = v.home.y, pz = v.home.z;
@@ -444,8 +413,7 @@ function tick(now){
       let sx = 1, sy = 1, sz = 1;
 
       if (broken){
-        // distance traveled since break (smooth)
-        const k = smoothstep(0, 0.25, over); // 0..1 over first 0.25 of fracture past threshold
+        const k = smoothstep(0, 0.25, over); 
         const dist = k * 6 + k*k*8;
         const fall = k*k * 6;
         px += v.dir.x * dist;
@@ -454,17 +422,14 @@ function tick(now){
         rx += v.spin.x * over * 8;
         ry += v.spin.y * over * 8;
         rz += v.spin.z * over * 8;
-        // shrink / fade as they fly
         const s = clamp(1 - k*1.1, 0, 1);
         sx = sy = sz = s;
       } else {
-        // stress wiggle
         const wig = stress * 0.06;
         px += Math.sin(elapsed*30 + v.home.x*3) * wig;
         py += Math.cos(elapsed*27 + v.home.y*3) * wig;
         pz += Math.sin(elapsed*25 + v.home.z*3) * wig;
 
-        // color darkens slightly with stress (micro-cracks)
         if (stress > 0.05){
           tmpColor.copy(v.baseColor).multiplyScalar(1 - stress*0.25);
           mesh.setColorAt(i, tmpColor);
@@ -483,23 +448,18 @@ function tick(now){
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
 
-  // Geode reveal
   const revealAmt = smoothstep(0.55, 0.95, fracture);
   if (revealAmt > 0.001){
     if (!geodeGroup.visible) geodeGroup.visible = true;
-    // grow
     const target = lerp(0.4, 1.0, revealAmt);
     const cur = geodeGroup.scale.x;
     const next = lerp(cur, target, 1 - Math.pow(0.0001, dt));
     geodeGroup.scale.setScalar(next);
 
-    // glow
     innerLight.intensity = lerp(innerLight.intensity, revealAmt * 4, 1 - Math.pow(0.001, dt));
-    // breathe
     const pal = PALETTES[state.palette];
     innerLight.color.setHex(pal.glow);
 
-    // shard grow-in with per-shard delay
     for (const c of geodeCrystals){
       if (c.kind === 'shard'){
         const t = clamp(revealAmt - c.delay*0.4, 0, 1);
@@ -547,7 +507,6 @@ function onPwChange(){
   const info = analyze(pw);
   current = info;
 
-  // update HUD
   $('#entropyV').textContent = info.entropy.toFixed(1);
   $('#charsetSize').textContent = info.poolSize;
   $('#crackV').textContent = pw.length ? crackTime(info.entropy) : '—';
@@ -558,7 +517,6 @@ function onPwChange(){
   $('#chDigit').classList.toggle('on', info.classes.digit);
   $('#chSym').classList.toggle('on', info.classes.symbol);
 
-  // meter: 5 segs representing progress to 120 bits
   const meter = document.querySelectorAll('#meter .seg .fill');
   const segs = meter.length;
   const progress = clamp(info.entropy / 100, 0, 1.001);
@@ -572,20 +530,15 @@ function onPwChange(){
     el.style.setProperty('--segB', colors.b);
   });
 
-  // verdict
   $('#verdict').textContent = verdict(info.entropy, info.len);
 
-  // fracture target
-  // Map entropy bits → fracture 0..1. 0 bits = 0; 30 bits barely cracks; 70+ fully breaks.
   let frac = 0;
   if (info.len > 0){
     frac = smoothstep(0, 90, info.entropy);
-    // diversity bonus — each new char class kicks it
     const classCount = Object.values(info.classes).filter(Boolean).length;
     frac = Math.max(frac, smoothstep(4, 28, info.len) * (0.4 + 0.15*classCount));
     frac = clamp(frac, 0, 1);
   }
-  // Flash when crossing the "crack open" threshold
   if (fractureTarget < 0.7 && frac >= 0.7){
     const flash = $('#flash');
     flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
@@ -593,16 +546,12 @@ function onPwChange(){
   }
   setFractureTarget(frac);
 
-  // Hero hide
   const hero = $('#hero');
   hero.classList.toggle('hidden', info.len > 0);
 
-  // Specimen card
   updateSpecimen(info, frac);
 
-  // Rebuild geode as entropy changes significantly so it mirrors the password.
-  // Keep seed based on the password content so it's deterministic.
-  if (frac > 0.2){ // once the rock starts fracturing meaningfully
+  if (frac > 0.2){ 
     const seed = hashStr(pw || 'empty');
     const complexity = clamp((info.entropy - 20) / 80, 0.15, 1);
     if (geodeSig !== `${seed}|${state.palette}|${complexity.toFixed(2)}`){
@@ -621,7 +570,6 @@ function rebuildGeode(){
 }
 
 function segColors(entropy){
-  // 0..30 red, 30..60 amber, 60..90 sage, 90+ accent
   if (entropy < 30) return { a:'#d97a6a', b:'#e09f7b' };
   if (entropy < 60) return { a:'#e6b873', b:'#e4cf8a' };
   if (entropy < 90) return { a:'#b7c596', b:'#8ecf9a' };
@@ -663,7 +611,6 @@ function updateSpecimen(info, frac){
   $('#spHue').textContent = frac > 0.55 ? hue : '—';
   $('#spLust').textContent = frac < 0.3 ? 'dull' : frac < 0.6 ? 'sub-vitreous' : frac < 0.8 ? 'vitreous' : 'adamantine';
 
-  // Spec name
   const rand = rng(hashStr(state.pw || 'x'));
   const rockNames = ROCK_NAMES[state.rock];
   const cryNames = CRYSTAL_NAMES[state.palette];
@@ -675,7 +622,6 @@ function updateSpecimen(info, frac){
   }
   $('#specName').textContent = name;
 
-  // Spec number
   const num = (hashStr(state.pw || '000') % 900 + 100).toString();
   $('#specNo').textContent = state.pw.length ? num : '000';
 }
@@ -693,7 +639,6 @@ const genState = { length: 20, lower:true, upper:true, digit:true, symbol:true }
 
 genToggleBtn.addEventListener('click', ()=>{
   const open = !genEl.classList.contains('closed') === false ? true : genEl.classList.contains('closed');
-  // toggle logic:
   const isOpen = !genEl.classList.contains('closed');
   if (isOpen){ genEl.classList.add('closed'); genToggleBtn.classList.remove('open'); }
   else { genEl.classList.remove('closed'); genToggleBtn.classList.add('open'); forgeOne(); }
@@ -731,7 +676,6 @@ function forgeOne(){
   for (let i=0;i<genState.length;i++){
     out += pool[buf[i] % pool.length];
   }
-  // guarantee each required class
   const arr = out.split('');
   req.forEach((charset, idx)=>{
     const has = arr.some(c => charset.includes(c));
@@ -782,7 +726,6 @@ function bindTweakGroup(groupId, key){
       }
     });
   });
-  // set initial selected
   const val = state[key];
   group.querySelectorAll('.seg-btn').forEach(b=>{
     b.classList.toggle('on', b.dataset.val === val);
@@ -791,7 +734,6 @@ function bindTweakGroup(groupId, key){
 
 function rebuildRock(){
   buildRock();
-  // re-apply current fracture state by letting the loop catch up
 }
 
 bindTweakGroup('#tw-rock', 'rock');
@@ -799,7 +741,6 @@ bindTweakGroup('#tw-palette', 'palette');
 bindTweakGroup('#tw-res', 'resolution');
 bindTweakGroup('#tw-spin', 'spin');
 
-// Host edit mode protocol
 window.addEventListener('message', (ev)=>{
   const d = ev.data;
   if (!d || typeof d !== 'object') return;
@@ -812,6 +753,16 @@ try { window.parent.postMessage({ type:'__edit_mode_available' }, '*'); } catch(
 buildRock();
 buildGeode(12345, state.palette, 0.6);
 onPwChange();
+
+// EDIT: Force Tweaks panel open on load
+if(tweaksEl) tweaksEl.classList.add('visible');
+
+// EDIT: Add toggle hotkey (T) to manually hide/show it
+window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 't' && document.activeElement.tagName !== 'INPUT') {
+    if(tweaksEl) tweaksEl.classList.toggle('visible');
+  }
+});
 
 // focus input on load for ergonomics
 setTimeout(()=>pwEl.focus(), 300);
